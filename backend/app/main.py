@@ -8,6 +8,7 @@ from backend.app.logging import setup_logging
 from backend.app.database import engine, Base
 from backend.app.api.health import router as health_router
 from backend.app.api.screenings import router as screenings_router
+from backend.app.api.documents import router as documents_router
 
 
 @asynccontextmanager
@@ -44,6 +45,7 @@ app.add_middleware(
 # Mount API routers under /api/v1
 app.include_router(health_router, prefix="/api/v1", tags=["Health"])
 app.include_router(screenings_router, prefix="/api/v1", tags=["Screenings"])
+app.include_router(documents_router, prefix="/api/v1", tags=["Documents & Biometrics"])
 
 
 @app.get("/", include_in_schema=False)

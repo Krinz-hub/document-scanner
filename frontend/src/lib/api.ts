@@ -103,4 +103,45 @@ export const api = {
     }),
 
   getScreeningEvidence: (id: string) => fetchJson<EvidenceItem[]>(`/screenings/${id}/evidence`),
+
+  uploadDocument: async (
+    screeningId: string,
+    file: File,
+    mrzLine1?: string,
+    mrzLine2?: string,
+    textHint?: string
+  ) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (mrzLine1) formData.append("mrz_line1", mrzLine1);
+    if (mrzLine2) formData.append("mrz_line2", mrzLine2);
+    if (textHint) formData.append("text_hint", textHint);
+
+    const res = await fetch(`${API_BASE}/screenings/${screeningId}/document`, {
+      method: "POST",
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: "Upload failed" }));
+      throw new Error(err.detail || "Document upload failed");
+    }
+    return res.json();
+  },
+
+  submitFace: async (screeningId: string, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(`${API_BASE}/screenings/${screeningId}/face`, {
+      method: "POST",
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: "Face verification failed" }));
+      throw new Error(err.detail || "Face verification failed");
+    }
+    return res.json();
+  },
+
+  getDocumentImageUrl: (screeningId: string) => `${API_BASE}/screenings/${screeningId}/document/image`,
 };

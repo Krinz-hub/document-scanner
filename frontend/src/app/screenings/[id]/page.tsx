@@ -15,7 +15,15 @@ export default function ScreeningDetailPage() {
   const [screening, setScreening] = useState<ScreeningDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [uploadingFace, setUploadingFace] = useState(false);
   const [showEvidenceModal, setShowEvidenceModal] = useState(false);
+
+  // Document Upload Form State
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [mrzL1, setMrzL1] = useState("");
+  const [mrzL2, setMrzL2] = useState("");
+  const [faceFile, setFaceFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -35,6 +43,43 @@ export default function ScreeningDetailPage() {
     }
   };
 
+  const handleDocumentUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!docFile) return;
+    setUploadingDoc(true);
+    setError(null);
+    try {
+      await api.uploadDocument(id, docFile, mrzL1, mrzL2);
+      await fetchScreening();
+      setDocFile(null);
+    } catch (err: any) {
+      setError(err.message || "Document upload failed");
+    } finally {
+      setUploadingDoc(false);
+    }
+  };
+
+  const handleFaceUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!faceFile) return;
+    setUploadingFace(true);
+    setError(null);
+    try {
+      await api.submitFace(id, faceFile);
+      await fetchScreening();
+      setFaceFile(null);
+    } catch (err: any) {
+      setError(err.message || "Face comparison failed");
+    } finally {
+      setUploadingFace(false);
+    }
+  };
+
+  const fillSpecimenMRZ = () => {
+    setMrzL1("P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<");
+    setMrzL2("L898902C36UTO7408122F1204159ZE184226B<<<<<10");
+  };
+
   if (loading) {
     return (
       <div className="py-12 space-y-4">
@@ -45,11 +90,11 @@ export default function ScreeningDetailPage() {
     );
   }
 
-  if (error || !screening) {
+  if (error && !screening) {
     return (
       <div className="py-12 max-w-lg mx-auto text-center space-y-4">
         <div className="p-4 bg-danger/10 border border-danger/20 text-danger rounded-sm text-sm">
-          <strong>Screening Lookup Failed:</strong> {error || "Record not found"}
+          <strong>Screening Lookup Failed:</strong> {error}
         </div>
         <div className="flex justify-center gap-4">
           <button
@@ -69,7 +114,8 @@ export default function ScreeningDetailPage() {
     );
   }
 
-  // Extract fields helper
+  if (!screening) return null;
+
   const getField = (name: string) => {
     const found = screening.extracted_fields.find(
       (f) => f.field_name.toLowerCase() === name.toLowerCase()
@@ -110,7 +156,7 @@ export default function ScreeningDetailPage() {
         </span>
         <div className="flex items-baseline justify-between mt-1">
           <h1 className="text-2xl font-bold tracking-tight text-text">
-            {doc?.type || "Unclassified Identity Document"}
+            {doc?.type || "Identity Document Intake"}
           </h1>
           <div className="flex items-center gap-2">
             <span className="text-xs uppercase text-muted font-medium">Review Priority:</span>
@@ -119,6 +165,134 @@ export default function ScreeningDetailPage() {
         </div>
       </div>
 
+      {error && (
+        <div className="p-3 bg-danger/10 border border-danger/30 text-danger text-xs rounded-sm">
+          <strong>Notice:</strong> {error}
+        </div>
+      )}
+
+      {/* DOCUMENT INTAKE / UPLOAD SECTION IF NOT UPLOADED */}
+      {!doc ? (
+        <div className="border border-line bg-surface p-6 rounded-sm space-y-5">
+          <div>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-text">
+              Step 1: Document Intake
+            </h2>
+            <p className="text-xs text-muted mt-1">
+              Upload traveler document scan or photograph (Passport, Visa, ID).
+            </p>
+          </div>
+
+          <form onSubmit={handleDocumentUpload} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-1">
+                Document Image File
+              </label>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(e) => setDocFile(e.target.files?.[0] || null)}
+                required
+                className="text-xs text-muted file:mr-4 file:py-2 file:px-4 file:rounded-sm file:border-0 file:text-xs file:font-semibold file:bg-text file:text-surface hover:file:opacity-90 cursor-pointer"
+              />
+            </div>
+
+            <div className="pt-2 border-t border-line space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-muted">
+                  Machine Readable Zone (MRZ) Optional Input
+                </label>
+                <button
+                  type="button"
+                  onClick={fillSpecimenMRZ}
+                  className="text-[11px] text-muted hover:text-text underline"
+                >
+                  Use ICAO 9303 Specimen
+                </button>
+              </div>
+              <input
+                type="text"
+                value={mrzL1}
+                onChange={(e) => setMrzL1(e.target.value)}
+                placeholder="P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<"
+                className="w-full px-3 py-1.5 text-xs bg-bg border border-line rounded-sm font-mono"
+              />
+              <input
+                type="text"
+                value={mrzL2}
+                onChange={(e) => setMrzL2(e.target.value)}
+                placeholder="L898902C36UTO7408122F1204159ZE184226B<<<<<10"
+                className="w-full px-3 py-1.5 text-xs bg-bg border border-line rounded-sm font-mono"
+              />
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="submit"
+                disabled={uploadingDoc || !docFile}
+                className="px-4 py-2 bg-text text-surface text-xs font-semibold uppercase tracking-wider rounded-sm hover:opacity-90 disabled:opacity-50"
+              >
+                {uploadingDoc ? "Processing Document..." : "Upload & Analyze Document →"}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : (
+        /* DOCUMENT PREVIEW & BIOMETRIC CAPTURE PANEL */
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 border border-line bg-surface rounded-sm">
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted block mb-2">
+              Ingested Document Scan
+            </span>
+            <div className="relative border border-line bg-bg rounded-sm overflow-hidden h-52 flex items-center justify-center">
+              <img
+                src={api.getDocumentImageUrl(screening.id)}
+                alt="Document Scan Preview"
+                className="max-h-full max-w-full object-contain"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = "none";
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col justify-between">
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted block mb-1">
+                Live Facial Biometric Verification
+              </span>
+              <p className="text-xs text-muted mb-3">
+                Submit traveler live camera capture to compare against document portrait.
+              </p>
+
+              <form onSubmit={handleFaceUpload} className="space-y-3">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(e) => setFaceFile(e.target.files?.[0] || null)}
+                  required
+                  className="text-xs text-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-sm file:border-0 file:text-[11px] file:font-semibold file:bg-text file:text-surface hover:file:opacity-90 cursor-pointer"
+                />
+                <button
+                  type="submit"
+                  disabled={uploadingFace || !faceFile}
+                  className="px-3 py-1.5 bg-text text-surface text-xs font-semibold uppercase tracking-wider rounded-sm hover:opacity-90 disabled:opacity-50"
+                >
+                  {uploadingFace ? "Verifying Face..." : "Compare Live Face"}
+                </button>
+              </form>
+            </div>
+
+            <div className="pt-3 border-t border-line">
+              <div className="flex items-center justify-between text-xs font-mono">
+                <span className="text-muted">Face Status:</span>
+                <StatusBadge status={screening.verification.face} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Verification Panels */}
       <div className="border-t border-line divide-y divide-line">
         {/* IDENTITY SECTION */}
@@ -126,7 +300,7 @@ export default function ScreeningDetailPage() {
           <h2 className="text-xs font-bold uppercase tracking-widest text-muted mb-3">
             Identity
           </h2>
-          <DataRow label="Name" value={getField("name") !== "—" ? getField("name") : "Awaiting document intake"} />
+          <DataRow label="Name" value={getField("name")} />
           <DataRow label="Nationality" value={getField("nationality")} />
           <DataRow label="Date of Birth" value={getField("date_of_birth")} />
         </div>
@@ -138,9 +312,12 @@ export default function ScreeningDetailPage() {
           </h2>
           <DataRow label="Document Number" value={getField("document_number")} />
           <DataRow label="Expiry">
-            <StatusBadge status={doc?.expiry_date ? "VALID" : "PENDING"} label={doc?.expiry_date ? String(doc.expiry_date) : "Pending intake"} />
+            <StatusBadge
+              status={getField("expiry_date") !== "—" ? "VALID" : "PENDING"}
+              label={getField("expiry_date") !== "—" ? getField("expiry_date") : "Pending Intake"}
+            />
           </DataRow>
-          <DataRow label="MRZ">
+          <DataRow label="MRZ Checksum">
             <StatusBadge status={screening.verification.mrz} />
           </DataRow>
         </div>
@@ -178,7 +355,7 @@ export default function ScreeningDetailPage() {
         {screening.reasons && screening.reasons.length > 0 && (
           <div className="section bg-warning/5 p-4 rounded-sm border border-warning/20">
             <h2 className="text-xs font-bold uppercase tracking-widest text-warning mb-2">
-              Reasons for Review
+              Reasons for Review ({screening.reasons.length})
             </h2>
             <ul className="list-disc list-inside space-y-1 text-sm text-text">
               {screening.reasons.map((r, i) => (
@@ -204,10 +381,10 @@ export default function ScreeningDetailPage() {
           </button>
           <button
             type="button"
-            onClick={() => alert(`Manual review recorded for ${screening.id}`)}
+            onClick={() => alert(`Officer manual decision logged for ${screening.id}`)}
             className="px-4 py-2 bg-text text-surface text-xs font-semibold uppercase tracking-wider rounded-sm hover:opacity-90 transition-opacity"
           >
-            Manual Review
+            Manual Action
           </button>
         </div>
       </div>
@@ -218,7 +395,7 @@ export default function ScreeningDetailPage() {
           <div className="bg-surface border border-line max-w-xl w-full p-6 rounded-sm space-y-4 shadow-lg">
             <div className="flex items-center justify-between border-b border-line pb-3">
               <h3 className="text-sm font-bold uppercase tracking-wider text-text">
-                Evidence Items • {screening.id}
+                Structured Evidence • {screening.id}
               </h3>
               <button
                 onClick={() => setShowEvidenceModal(false)}
@@ -231,7 +408,7 @@ export default function ScreeningDetailPage() {
             <div className="max-h-80 overflow-y-auto space-y-3">
               {screening.evidence_items.length === 0 ? (
                 <p className="text-xs text-muted py-6 text-center">
-                  No evidence flags generated yet. Document intake pending.
+                  No evidence flags generated yet. All checks passed cleanly.
                 </p>
               ) : (
                 screening.evidence_items.map((e) => (
