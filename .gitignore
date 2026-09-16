@@ -4,9 +4,11 @@ __pycache__/
 *$py.class
 *.so
 .Python
-backend/build/
-backend/dist/
-backend/*.egg-info/
+build/
+dist/
+*.egg-info/
+.venv/
+venv/
 backend/.venv/
 backend/venv/
 backend/*.db
@@ -17,6 +19,7 @@ htmlcov/
 
 # Node
 node_modules/
+frontend/node_modules/
 frontend/.next/
 frontend/out/
 frontend/build/
@@ -24,8 +27,13 @@ frontend/dist/
 .npm
 *.log
 
+# Docker / Persistent volumes
+postgres_data/
+minio_data/
+
 # Environment & OS
 .env
 .env.local
+.env.*.local
 .DS_Store
 Thumbs.db
