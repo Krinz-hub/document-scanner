@@ -50,6 +50,7 @@ services:
       STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY:-minioadmin}
       STORAGE_BUCKET_DOCUMENTS: ${STORAGE_BUCKET_DOCUMENTS:-screening-documents}
       CORS_ORIGINS: "http://localhost:3000,http://frontend:3000"
+      PYTHONPATH: "/:/app"
     ports:
       - "8000:8000"
     depends_on:

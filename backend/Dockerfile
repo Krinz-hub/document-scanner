@@ -43,6 +43,8 @@ ENV PYTHONUNBUFFERED=1
 
 # Copy application source code
 COPY --chown=appuser:appgroup . /app
+RUN ln -s /app /backend
+ENV PYTHONPATH="/:/app"
 
 # Switch to non-root user
 USER appuser

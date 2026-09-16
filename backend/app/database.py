@@ -8,11 +8,15 @@ settings = get_settings()
 
 # Configure engine with health ping
 connect_args = {}
-if settings.DATABASE_URL.startswith("sqlite"):
+db_url = settings.DATABASE_URL
+if db_url.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
+elif db_url.startswith("postgresql://"):
+    # Ensure psycopg 3 driver is used when driver is omitted
+    db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
 
 engine = create_engine(
-    settings.DATABASE_URL,
+    db_url,
     connect_args=connect_args,
     pool_pre_ping=True
 )
