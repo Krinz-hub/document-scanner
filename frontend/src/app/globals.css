@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --text: #171717;
+  --muted: #6b6b67;
+  --line: #e7e7e2;
+
+  --success: #287a55;
+  --warning: #9a6a16;
+  --danger: #b23a32;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --radius-sm: 6px;
+  --content-width: 1280px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page-container {
+  width: min(100% - 32px, var(--content-width));
+  margin-inline: auto;
+  padding-block: var(--space-6);
+}
+
+.section {
+  padding-block: var(--space-5);
+}
+
+.section + .section {
+  border-top: 1px solid var(--line);
+}
+
+.data-row {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: var(--space-5);
+  padding-block: var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+
+@media (max-width: 768px) {
+  .data-row {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+}
