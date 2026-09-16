@@ -42,6 +42,13 @@ class EvidenceItemSchema(BaseModel):
     source_module: str
 
 
+class ScreeningDecision(BaseModel):
+    action: str  # ACCEPTED/CLEAR, REJECTED/REJECT, ESCALATED/REFER_SECONDARY
+    notes: Optional[str] = None
+    officer_id: Optional[str] = "OFFICER-01"
+    decided_by: Optional[str] = None
+
+
 class ScreeningSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -51,6 +58,7 @@ class ScreeningSummary(BaseModel):
     review_priority: str
     created_at: datetime
     updated_at: Optional[datetime] = None
+    officer_action: Optional[str] = None
 
 
 class ScreeningDetail(BaseModel):
@@ -62,6 +70,10 @@ class ScreeningDetail(BaseModel):
     review_priority: str
     created_at: datetime
     updated_at: Optional[datetime] = None
+    officer_action: Optional[str] = None
+    officer_notes: Optional[str] = None
+    decided_at: Optional[datetime] = None
+    decided_by: Optional[str] = None
     documents: List[DocumentSchema] = []
     extracted_fields: List[ExtractedFieldSchema] = []
     evidence_items: List[EvidenceItemSchema] = []

@@ -1,0 +1,117 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: border_screening_postgres_prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-screening_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-screening_secure_prod_pwd_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-border_screening}
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c max_connections=100
+      -c work_mem=16MB
+      -c maintenance_work_mem=64MB
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-screening_admin} -d ${POSTGRES_DB:-border_screening}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: border_screening_minio_prod
+    restart: always
+    environment:
+      MINIO_ROOT_USER: ${STORAGE_ACCESS_KEY:-screening_storage_key}
+      MINIO_ROOT_PASSWORD: ${STORAGE_SECRET_KEY:-screening_storage_secret_key_2026}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_prod_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio-init:
+    image: quay.io/minio/mc:latest
+    container_name: border_screening_minio_init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      until (/usr/bin/mc alias set localminio http://minio:9000 ${STORAGE_ACCESS_KEY:-screening_storage_key} ${STORAGE_SECRET_KEY:-screening_storage_secret_key_2026}); do
+        echo 'Waiting for MinIO object storage...';
+        sleep 2;
+      done;
+      /usr/bin/mc mb --ignore-existing localminio/${STORAGE_BUCKET_DOCUMENTS:-screening-documents};
+      echo 'MinIO screening bucket verified.';
+      exit 0;
+      "
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: border_screening_backend_prod
+    restart: always
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-screening_admin}:${POSTGRES_PASSWORD:-screening_secure_prod_pwd_2026}@postgres:5432/${POSTGRES_DB:-border_screening}
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY:-screening_storage_key}
+      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY:-screening_storage_secret_key_2026}
+      STORAGE_BUCKET_DOCUMENTS: ${STORAGE_BUCKET_DOCUMENTS:-screening-documents}
+      CORS_ORIGINS: "http://localhost,http://localhost:80,http://127.0.0.1"
+      AUTH_REQUIRED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: /api/v1
+    container_name: border_screening_frontend_prod
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: border_screening_nginx_prod
+    restart: always
+    ports:
+      - "${PORT:-80}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+      - frontend
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  postgres_prod_data:
+  minio_prod_data:

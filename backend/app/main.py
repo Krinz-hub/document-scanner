@@ -9,6 +9,8 @@ from backend.app.database import engine, Base
 from backend.app.api.health import router as health_router
 from backend.app.api.screenings import router as screenings_router
 from backend.app.api.documents import router as documents_router
+from backend.app.api.maintenance import router as maintenance_router
+from backend.app.api.metrics import router as metrics_router
 
 
 @asynccontextmanager
@@ -46,6 +48,9 @@ app.add_middleware(
 app.include_router(health_router, prefix="/api/v1", tags=["Health"])
 app.include_router(screenings_router, prefix="/api/v1", tags=["Screenings"])
 app.include_router(documents_router, prefix="/api/v1", tags=["Documents & Biometrics"])
+app.include_router(maintenance_router, prefix="/api/v1", tags=["Maintenance"])
+app.include_router(metrics_router, prefix="/api/v1", tags=["Metrics"])
+app.include_router(metrics_router, tags=["Metrics"])
 
 
 @app.get("/", include_in_schema=False)

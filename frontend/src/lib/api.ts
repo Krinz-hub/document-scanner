@@ -55,6 +55,10 @@ export interface ScreeningDetail {
     text: string;
     stamp: string;
   };
+  officer_action?: string;
+  officer_notes?: string;
+  decided_at?: string;
+  decided_by?: string;
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1";
@@ -142,6 +146,12 @@ export const api = {
     }
     return res.json();
   },
+
+  submitDecision: (screeningId: string, action: string, notes?: string, decided_by?: string) =>
+    fetchJson<ScreeningDetail>(`/screenings/${screeningId}/decision`, {
+      method: "POST",
+      body: JSON.stringify({ action, notes, decided_by }),
+    }),
 
   getDocumentImageUrl: (screeningId: string) => `${API_BASE}/screenings/${screeningId}/document/image`,
 };

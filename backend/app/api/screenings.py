@@ -11,12 +11,91 @@ from backend.app.database import get_db
 from backend.app.models.screening import Screening, AuditEvent
 from backend.app.schemas.screening import (
     ScreeningCreate,
+    ScreeningDecision,
     ScreeningSummary,
     ScreeningDetail,
     EvidenceItemSchema,
 )
 
 router = APIRouter()
+
+
+@router.post(
+    "/screenings/{screening_id}/decision",
+    response_model=ScreeningDetail,
+    summary="Record officer manual inspection decision",
+)
+def record_officer_decision(
+    screening_id: str,
+    payload: ScreeningDecision,
+    db: Session = Depends(get_db),
+):
+    screening = db.query(Screening).filter_by(id=screening_id).first()
+    if not screening:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Screening '{screening_id}' not found")
+
+    action_map = {
+        "ACCEPTED": "ACCEPTED",
+        "CLEAR": "ACCEPTED",
+        "REJECTED": "REJECTED",
+        "REJECT": "REJECTED",
+        "ESCALATED": "ESCALATED",
+        "REFER_SECONDARY": "ESCALATED",
+    }
+    action_raw = payload.action.upper()
+    if action_raw not in action_map:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid action '{payload.action}'. Allowed actions: {', '.join(action_map.keys())}",
+        )
+
+    officer_id = payload.decided_by or payload.officer_id or "OFFICER-01"
+    now = datetime.now(timezone.utc)
+    screening.status = action_map[action_raw]
+    screening.officer_action = action_raw
+    screening.officer_notes = payload.notes
+    screening.decided_at = now
+    screening.decided_by = officer_id
+
+    # Append immutable audit event
+    audit = AuditEvent(
+        id=uuid.uuid4().hex,
+        screening_id=screening_id,
+        event_type="OFFICER_DECISION_RECORDED",
+        actor=officer_id,
+        event_metadata={"action": action_raw, "status": screening.status, "notes": payload.notes},
+    )
+    db.add(audit)
+    db.commit()
+    db.refresh(screening)
+
+    return build_screening_detail(screening)
+
+
+@router.get(
+    "/screenings/{screening_id}/audit",
+    summary="Get immutable audit trail of screening events",
+)
+def get_screening_audit_trail(
+    screening_id: str,
+    db: Session = Depends(get_db),
+):
+    screening = db.query(Screening).filter_by(id=screening_id).first()
+    if not screening:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Screening '{screening_id}' not found")
+
+    events = db.query(AuditEvent).filter_by(screening_id=screening_id).order_by(AuditEvent.timestamp.asc()).all()
+    return [
+        {
+            "id": e.id,
+            "screening_id": e.screening_id,
+            "event_type": e.event_type,
+            "timestamp": e.timestamp,
+            "actor": e.actor,
+            "metadata": e.event_metadata,
+        }
+        for e in events
+    ]
 
 
 def generate_screening_id() -> str:
@@ -153,6 +232,10 @@ def build_screening_detail(screening: Screening) -> ScreeningDetail:
         review_priority=screening.review_priority,
         created_at=screening.created_at,
         updated_at=screening.updated_at,
+        officer_action=screening.officer_action,
+        officer_notes=screening.officer_notes,
+        decided_at=screening.decided_at,
+        decided_by=screening.decided_by,
         documents=screening.documents,
         extracted_fields=screening.extracted_fields,
         evidence_items=screening.evidence_items,

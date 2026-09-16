@@ -62,8 +62,8 @@ class DocumentOCREngine:
         fields: Dict[str, Dict[str, Any]] = {}
         lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
 
-        # 1. Document Number Pattern (Handle multi-word labels like DOCUMENT NUMBER, PASSPORT NO)
-        doc_labeled = re.search(r"(?:DOCUMENT\s+NUMBER|PASSPORT\s+NUMBER|PASSPORT\s+NO|DOCUMENT\s+NO|DOCUMENT|PASSPORT|NUMBER|NO)[:\s]+([A-Z0-9]{6,12})\b", raw_text, re.IGNORECASE)
+        # 1. Document Number Pattern (Handle multi-word labels and optional hyphens)
+        doc_labeled = re.search(r"(?:DOCUMENT\s+NUMBER|PASSPORT\s+NUMBER|PASSPORT\s+NO|DOCUMENT\s+NO|DOCUMENT|PASSPORT|NUMBER|NO)[:\s]+([A-Z0-9-]{6,16})\b", raw_text, re.IGNORECASE)
         if doc_labeled:
             val = doc_labeled.group(1).upper()
             if any(c.isdigit() for c in val):

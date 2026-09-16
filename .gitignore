@@ -30,6 +30,8 @@ frontend/dist/
 # Docker / Persistent volumes
 postgres_data/
 minio_data/
+backups/
+*.sql.gz
 
 # Environment & OS
 .env

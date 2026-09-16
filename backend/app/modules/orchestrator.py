@@ -302,6 +302,7 @@ class ScreeningOrchestrator:
 
     def _update_screening_status_and_priority(self, screening: Screening, db: Session):
         """Explainable review priority: LOW / MEDIUM / HIGH."""
+        db.flush()
         # Query active critical or warning evidence
         evidence = db.query(EvidenceItem).filter_by(screening_id=screening.id).all()
         critical_count = sum(1 for e in evidence if e.severity == "CRITICAL")

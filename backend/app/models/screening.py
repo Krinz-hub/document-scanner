@@ -26,8 +26,12 @@ class Screening(Base):
     created_at = Column(DateTime, default=utc_now, nullable=False)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     checkpoint_id = Column(String(64), default="CP-DEFAULT", nullable=False)
-    status = Column(String(32), default="PENDING", nullable=False)  # PENDING, PROCESSING, REVIEW_REQUIRED, COMPLETED
+    status = Column(String(32), default="PENDING", nullable=False)  # PENDING, PROCESSING, REVIEW_REQUIRED, COMPLETED, ACCEPTED, REJECTED, ESCALATED
     review_priority = Column(String(16), default="LOW", nullable=False)  # LOW, MEDIUM, HIGH
+    officer_action = Column(String(32), nullable=True)  # ACCEPTED, REJECTED, ESCALATED
+    officer_notes = Column(Text, nullable=True)
+    decided_at = Column(DateTime, nullable=True)
+    decided_by = Column(String(64), nullable=True)
 
     # Relationships
     documents = relationship("DocumentRecord", back_populates="screening", cascade="all, delete-orphan")

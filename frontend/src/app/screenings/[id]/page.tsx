@@ -18,6 +18,11 @@ export default function ScreeningDetailPage() {
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [uploadingFace, setUploadingFace] = useState(false);
   const [showEvidenceModal, setShowEvidenceModal] = useState(false);
+  const [showDecisionModal, setShowDecisionModal] = useState(false);
+  const [decisionAction, setDecisionAction] = useState<string>("CLEAR");
+  const [decisionNotes, setDecisionNotes] = useState("");
+  const [decidedBy, setDecidedBy] = useState("OFFICER-4412");
+  const [submittingDecision, setSubmittingDecision] = useState(false);
 
   // Document Upload Form State
   const [docFile, setDocFile] = useState<File | null>(null);
@@ -78,6 +83,27 @@ export default function ScreeningDetailPage() {
   const fillSpecimenMRZ = () => {
     setMrzL1("P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<");
     setMrzL2("L898902C36UTO7408122F1204159ZE184226B<<<<<10");
+  };
+
+  const handleDecisionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmittingDecision(true);
+    setError(null);
+    try {
+      const updated = await api.submitDecision(
+        id,
+        decisionAction,
+        decisionNotes || undefined,
+        decidedBy || undefined
+      );
+      setScreening(updated);
+      setShowDecisionModal(false);
+      setDecisionNotes("");
+    } catch (err: any) {
+      setError(err.message || "Failed to record manual review decision");
+    } finally {
+      setSubmittingDecision(false);
+    }
   };
 
   if (loading) {
@@ -364,6 +390,36 @@ export default function ScreeningDetailPage() {
             </ul>
           </div>
         )}
+        {/* OFFICER DECISION BANNER IF RECORDED */}
+        {screening.officer_action && (
+          <div className="section bg-surface p-4 rounded-sm border border-line space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-widest text-muted">
+                Recorded Officer Decision
+              </span>
+              <StatusBadge
+                status={screening.officer_action === "CLEAR" ? "ACCEPTED" : screening.officer_action === "REJECT" ? "REJECTED" : "REVIEW_REQUIRED"}
+                label={screening.officer_action}
+              />
+            </div>
+            <div className="text-xs text-text space-y-1">
+              <div>
+                <span className="text-muted">Officer ID:</span>{" "}
+                <span className="font-mono">{screening.decided_by || "OFFICER"}</span>
+                {screening.decided_at && (
+                  <span className="text-muted ml-3">
+                    Decided at: {new Date(screening.decided_at).toLocaleString()}
+                  </span>
+                )}
+              </div>
+              {screening.officer_notes && (
+                <div>
+                  <span className="text-muted">Officer Notes:</span> {screening.officer_notes}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Action Footer */}
@@ -381,10 +437,10 @@ export default function ScreeningDetailPage() {
           </button>
           <button
             type="button"
-            onClick={() => alert(`Officer manual decision logged for ${screening.id}`)}
+            onClick={() => setShowDecisionModal(true)}
             className="px-4 py-2 bg-text text-surface text-xs font-semibold uppercase tracking-wider rounded-sm hover:opacity-90 transition-opacity"
           >
-            Manual Action
+            {screening.officer_action ? "Update Action" : "Officer Decision"}
           </button>
         </div>
       </div>
@@ -436,6 +492,91 @@ export default function ScreeningDetailPage() {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Officer Decision Modal */}
+      {showDecisionModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-surface border border-line max-w-md w-full p-6 rounded-sm space-y-4 shadow-lg">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-wider text-text">
+                  Officer Manual Decision
+                </h3>
+                <span className="text-[11px] font-mono text-muted">
+                  Session: {screening.id}
+                </span>
+              </div>
+              <button
+                onClick={() => setShowDecisionModal(false)}
+                className="text-muted hover:text-text text-sm font-mono"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleDecisionSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-1">
+                  Determination Action
+                </label>
+                <select
+                  value={decisionAction}
+                  onChange={(e) => setDecisionAction(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-bg border border-line rounded-sm text-text font-semibold"
+                >
+                  <option value="CLEAR">CLEAR (Allow Entry / Cleared)</option>
+                  <option value="REFER_SECONDARY">REFER_SECONDARY (Secondary Inspection)</option>
+                  <option value="REJECT">REJECT (Deny Clearance / Revoke)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-1">
+                  Officer Badge / ID
+                </label>
+                <input
+                  type="text"
+                  value={decidedBy}
+                  onChange={(e) => setDecidedBy(e.target.value)}
+                  placeholder="OFFICER-4412"
+                  required
+                  className="w-full px-3 py-1.5 text-xs bg-bg border border-line rounded-sm font-mono text-text"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-1">
+                  Decision Justification & Notes
+                </label>
+                <textarea
+                  value={decisionNotes}
+                  onChange={(e) => setDecisionNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Record officer observation, secondary referral reason, or physical inspection notes..."
+                  className="w-full px-3 py-1.5 text-xs bg-bg border border-line rounded-sm text-text"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-line">
+                <button
+                  type="button"
+                  onClick={() => setShowDecisionModal(false)}
+                  className="px-4 py-2 border border-line bg-surface text-xs font-semibold uppercase tracking-wider text-text rounded-sm hover:bg-bg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingDecision}
+                  className="px-4 py-2 bg-text text-surface text-xs font-semibold uppercase tracking-wider rounded-sm hover:opacity-90 disabled:opacity-50"
+                >
+                  {submittingDecision ? "Recording..." : "Confirm Decision"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
